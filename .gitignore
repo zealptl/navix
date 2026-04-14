@@ -26,14 +26,20 @@ MANIFEST
 venv/
 ENV/
 env/
+.env*
 .env
 .env.local
 .env.*.local
+frontend/.env.development
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
+
+# Star catalog data
+data/hyg_v38.csv
+data/hyg_v38.csv.gz
 
 # OS
 .DS_Store

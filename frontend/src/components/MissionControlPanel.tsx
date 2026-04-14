@@ -31,7 +31,7 @@ function StarSelectInput({ label, star, color, onSelect }: StarSelectInputProps)
       setOpen(false);
       return;
     }
-    fetch(`/api/stars/search?q=${encodeURIComponent(q)}`)
+    fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/stars/search?q=${encodeURIComponent(q)}`)
       .then((r) => r.json())
       .then((data: Star[]) => {
         setResults(data.slice(0, 10));
@@ -144,7 +144,7 @@ function FamousStarRow({ onSelect, selectedOrigin, selectedDestination }: Famous
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/stars/famous')
+    fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/stars/famous`)
       .then((r) => r.json())
       .then((data: Star[]) => {
         setStars(data);

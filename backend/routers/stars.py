@@ -111,19 +111,18 @@ def search_stars(
     if not q.strip():
         return []
 
-    # FTS5 MATCH with bm25 ranking; tiebreak by distance
+    pattern = f"%{q.strip()}%"
     rows = db.execute(
         text("""
-            SELECT s.id, s.proper_name, s.bayer_name, s.x, s.y, s.z,
-                   s.distance_ly, s.spectral_type, s.magnitude,
-                   s.is_famous, s.famous_rank, s.blurb
-            FROM stars_fts
-            JOIN stars s ON s.id = stars_fts.rowid
-            WHERE stars_fts MATCH :query
-            ORDER BY bm25(stars_fts), s.distance_ly
+            SELECT id, proper_name, bayer_name, x, y, z,
+                   distance_ly, spectral_type, magnitude,
+                   is_famous, famous_rank, blurb
+            FROM stars
+            WHERE proper_name ILIKE :pattern OR bayer_name ILIKE :pattern
+            ORDER BY distance_ly
             LIMIT 20
         """),
-        {"query": q.strip() + "*"},
+        {"pattern": pattern},
     ).fetchall()
     return [_row_to_dict(r) for r in rows]
 

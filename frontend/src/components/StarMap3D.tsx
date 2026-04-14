@@ -649,7 +649,7 @@ function Zone2Stars() {
 
   // Task 6.1: fetch stars < 5,000 ly on mount, up to 50k
   useEffect(() => {
-    fetch('/api/stars/nearby?ly=5000&limit=50000')
+    fetch(`${import.meta.env.VITE_API_BASE_URL ?? ''}/api/stars/nearby?ly=5000&limit=50000`)
       .then((r) => r.json())
       .then((data: Star[]) => setStars(data))
       .catch(console.error)

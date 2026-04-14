@@ -1,23 +1,37 @@
 """
-Seed script: downloads HYG v3 stellar catalog, builds SQLite database, creates FTS5 index.
-Run once at build time: python seed.py
+Seed script: downloads HYG v3 stellar catalog, builds Postgres database.
+Run once after provisioning Supabase: python seed.py
+Requires DATABASE_URL in environment (or .env file).
 """
 import csv
 import math
 import os
-import sqlite3
+import sys
+import gzip
+import shutil
+import subprocess
+import ssl
 import urllib.request
+
+import psycopg2
+from psycopg2.extras import execute_values
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 CSV_GZ_PATH = os.path.join(DATA_DIR, "hyg_v38.csv.gz")
 CSV_PATH = os.path.join(DATA_DIR, "hyg_v38.csv")
-DB_PATH = os.path.join(os.path.dirname(__file__), "stars.db")
 
 HYG_URL = "https://raw.githubusercontent.com/astronexus/HYG-Database/master/hyg/v3/hyg_v38.csv.gz"
 
+
+def log(msg):
+    print(msg, flush=True)
+
+
 # ---------------------------------------------------------------------------
-# Famous stars: matched against HYG proper names (lowercase), or inserted
-# if not present in the catalog.
+# Famous stars
 # ---------------------------------------------------------------------------
 FAMOUS_STARS = [
     {
@@ -112,7 +126,6 @@ FAMOUS_STARS = [
     },
 ]
 
-# Stars not in HYG catalog that we insert manually.
 MANUAL_STARS = [
     {
         "proper_name": "TRAPPIST-1",
@@ -157,75 +170,78 @@ MANUAL_STARS = [
 
 
 def download_csv() -> None:
-    import gzip
-    import shutil
-    import subprocess
-    import ssl
-
     os.makedirs(DATA_DIR, exist_ok=True)
     if os.path.exists(CSV_PATH):
-        print(f"HYG CSV already present at {CSV_PATH}")
+        log(f"HYG CSV already present at {CSV_PATH}")
         return
 
-    print(f"Downloading HYG v38 catalog from {HYG_URL} …")
-    # Try curl first (handles system certs on macOS reliably).
+    log(f"Downloading HYG v38 catalog from {HYG_URL} …")
     result = subprocess.run(
         ["curl", "-fsSL", HYG_URL, "-o", CSV_GZ_PATH], capture_output=True
     )
     if result.returncode != 0:
-        # Fall back to urllib with SSL verification disabled for local dev.
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         with urllib.request.urlopen(HYG_URL, context=ctx) as resp, open(CSV_GZ_PATH, "wb") as f:
             f.write(resp.read())
 
-    print(f"Decompressing …")
+    log("Decompressing …")
     with gzip.open(CSV_GZ_PATH, "rb") as gz_in, open(CSV_PATH, "wb") as csv_out:
         shutil.copyfileobj(gz_in, csv_out)
-    print(f"CSV ready at {CSV_PATH}")
+    log(f"CSV ready at {CSV_PATH}")
 
 
 def build_database() -> None:
-    if os.path.exists(DB_PATH):
-        os.remove(DB_PATH)
-        print("Removed existing database.")
-
-    con = sqlite3.connect(DB_PATH)
+    database_url = os.environ["DATABASE_URL"]
+    log(f"Connecting to database …")
+    con = psycopg2.connect(database_url)
     cur = con.cursor()
+    log("Connected.")
 
     # -----------------------------------------------------------------------
-    # Create stars table
+    # Create stars table (Postgres DDL)
     # -----------------------------------------------------------------------
+    log("Creating schema …")
+    cur.execute("DROP TABLE IF EXISTS stars")
     cur.execute("""
         CREATE TABLE stars (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            hyg_id      INTEGER,
-            hip         INTEGER,
-            proper_name TEXT,
-            bayer_name  TEXT,
-            x           REAL NOT NULL,
-            y           REAL NOT NULL,
-            z           REAL NOT NULL,
-            distance_pc REAL NOT NULL,
-            distance_ly REAL NOT NULL,
+            id            SERIAL PRIMARY KEY,
+            hyg_id        INTEGER,
+            hip           INTEGER,
+            proper_name   TEXT,
+            bayer_name    TEXT,
+            x             DOUBLE PRECISION NOT NULL,
+            y             DOUBLE PRECISION NOT NULL,
+            z             DOUBLE PRECISION NOT NULL,
+            distance_pc   DOUBLE PRECISION NOT NULL,
+            distance_ly   DOUBLE PRECISION NOT NULL,
             spectral_type TEXT,
-            magnitude   REAL,
-            abs_magnitude REAL,
-            is_famous   INTEGER NOT NULL DEFAULT 0,
-            famous_rank INTEGER,
-            blurb       TEXT
+            magnitude     DOUBLE PRECISION,
+            abs_magnitude DOUBLE PRECISION,
+            is_famous     INTEGER NOT NULL DEFAULT 0,
+            famous_rank   INTEGER,
+            blurb         TEXT
         )
     """)
     cur.execute("CREATE INDEX idx_distance_ly ON stars (distance_ly)")
     cur.execute("CREATE INDEX idx_is_famous ON stars (is_famous)")
+    cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
+    cur.execute("""
+        CREATE INDEX idx_stars_name_trgm ON stars
+        USING GIN (lower(coalesce(proper_name, '')) gin_trgm_ops,
+                   lower(coalesce(bayer_name, '')) gin_trgm_ops)
+    """)
+    con.commit()
+    log("Schema created.")
 
     # -----------------------------------------------------------------------
     # Parse HYG CSV and bulk-insert
     # -----------------------------------------------------------------------
-    print("Parsing HYG CSV …")
+    log("Parsing HYG CSV …")
     batch = []
     BATCH_SIZE = 5000
+    parsed = 0
     total = 0
 
     with open(CSV_PATH, newline="", encoding="utf-8") as f:
@@ -242,7 +258,6 @@ def build_database() -> None:
             distance_ly = distance_pc * 3.26156
 
             proper = row.get("proper", "").strip() or None
-            # bf is Bayer-Flamsteed; bayer is Bayer-only — prefer bf for display
             bayer = row.get("bf", "").strip() or row.get("bayer", "").strip() or None
 
             try:
@@ -268,29 +283,47 @@ def build_database() -> None:
                 hyg_id, hip, proper, bayer,
                 x, y, z, distance_pc, distance_ly,
                 spect, mag, absmag,
-                0, None, None,  # is_famous, famous_rank, blurb
+                0, None, None,
             ))
 
+            parsed += 1
+            if parsed % 10000 == 0:
+                log(f"  Parsed {parsed} rows …")
+
             if len(batch) >= BATCH_SIZE:
-                cur.executemany(
-                    "INSERT INTO stars (hyg_id,hip,proper_name,bayer_name,x,y,z,distance_pc,distance_ly,"
-                    "spectral_type,magnitude,abs_magnitude,is_famous,famous_rank,blurb) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    batch,
-                )
-                total += len(batch)
-                batch = []
-                print(f"  Inserted {total} stars …")
+                try:
+                    execute_values(
+                        cur,
+                        "INSERT INTO stars (hyg_id,hip,proper_name,bayer_name,x,y,z,distance_pc,distance_ly,"
+                        "spectral_type,magnitude,abs_magnitude,is_famous,famous_rank,blurb) VALUES %s",
+                        batch,
+                    )
+                    con.commit()
+                    total += len(batch)
+                    log(f"  Inserted {total} stars …")
+                except Exception as e:
+                    log(f"  ERROR inserting batch at total={total}: {e}")
+                    con.rollback()
+                    raise
+                finally:
+                    batch = []
 
     if batch:
-        cur.executemany(
-            "INSERT INTO stars (hyg_id,hip,proper_name,bayer_name,x,y,z,distance_pc,distance_ly,"
-            "spectral_type,magnitude,abs_magnitude,is_famous,famous_rank,blurb) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            batch,
-        )
-        total += len(batch)
+        try:
+            execute_values(
+                cur,
+                "INSERT INTO stars (hyg_id,hip,proper_name,bayer_name,x,y,z,distance_pc,distance_ly,"
+                "spectral_type,magnitude,abs_magnitude,is_famous,famous_rank,blurb) VALUES %s",
+                batch,
+            )
+            con.commit()
+            total += len(batch)
+        except Exception as e:
+            log(f"  ERROR inserting final batch: {e}")
+            con.rollback()
+            raise
 
-    con.commit()
-    print(f"Inserted {total} stars from HYG catalog.")
+    log(f"Inserted {total} stars from HYG catalog.")
 
     # -----------------------------------------------------------------------
     # Insert manual stars (not in HYG)
@@ -299,26 +332,32 @@ def build_database() -> None:
         x, y, z = s["x"], s["y"], s["z"]
         distance_pc = math.sqrt(x * x + y * y + z * z)
         distance_ly = distance_pc * 3.26156
-        cur.execute(
-            "INSERT INTO stars (hyg_id,hip,proper_name,bayer_name,x,y,z,distance_pc,distance_ly,"
-            "spectral_type,magnitude,abs_magnitude,is_famous,famous_rank,blurb) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (
-                None, None, s["proper_name"], s["bayer_name"],
-                x, y, z, distance_pc, distance_ly,
-                s["spectral_type"], s["magnitude"], s["abs_magnitude"],
-                1 if s["is_famous"] else 0, s["famous_rank"], s["blurb"],
-            ),
-        )
+        try:
+            cur.execute(
+                "INSERT INTO stars (hyg_id,hip,proper_name,bayer_name,x,y,z,distance_pc,distance_ly,"
+                "spectral_type,magnitude,abs_magnitude,is_famous,famous_rank,blurb) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                (
+                    None, None, s["proper_name"], s["bayer_name"],
+                    x, y, z, distance_pc, distance_ly,
+                    s["spectral_type"], s["magnitude"], s["abs_magnitude"],
+                    1 if s["is_famous"] else 0, s["famous_rank"], s["blurb"],
+                ),
+            )
+            log(f"  Inserted manual star: {s['proper_name']}")
+        except Exception as e:
+            log(f"  ERROR inserting manual star {s['proper_name']}: {e}")
+            con.rollback()
+            raise
     con.commit()
-    print(f"Inserted {len(MANUAL_STARS)} manual stars.")
+    log(f"Inserted {len(MANUAL_STARS)} manual stars.")
 
     # -----------------------------------------------------------------------
-    # Task 2.4 — Mark famous stars from HYG with ranks and blurbs
+    # Mark famous stars from HYG with ranks and blurbs
     # -----------------------------------------------------------------------
-    print("Marking famous stars …")
+    log("Marking famous stars …")
     for entry in FAMOUS_STARS:
-        placeholders = ",".join("?" * len(entry["names"]))
         names = [n.lower() for n in entry["names"]]
+        placeholders = ",".join(["%s"] * len(names))
         cur.execute(
             f"SELECT id FROM stars WHERE lower(proper_name) IN ({placeholders}) "
             f"OR lower(bayer_name) IN ({placeholders}) "
@@ -327,37 +366,18 @@ def build_database() -> None:
         )
         row = cur.fetchone()
         if row:
-            # Also set proper_name to display_name if it was NULL (e.g. Tau Ceti)
             cur.execute(
-                "UPDATE stars SET is_famous=1, famous_rank=?, blurb=?, "
-                "proper_name=coalesce(proper_name, ?) WHERE id=?",
+                "UPDATE stars SET is_famous=1, famous_rank=%s, blurb=%s, "
+                "proper_name=coalesce(proper_name, %s) WHERE id=%s",
                 (entry["rank"], entry["blurb"], entry["display_name"], row[0]),
             )
         else:
-            print(f"  WARNING: famous star not found in HYG: {entry['names']}")
+            log(f"  WARNING: famous star not found in HYG: {entry['names']}")
     con.commit()
 
-    # -----------------------------------------------------------------------
-    # Task 2.5 — FTS5 virtual table over proper_name and bayer_name
-    # -----------------------------------------------------------------------
-    print("Building FTS5 index …")
-    cur.execute("""
-        CREATE VIRTUAL TABLE stars_fts USING fts5(
-            proper_name,
-            bayer_name,
-            content=stars,
-            content_rowid=id
-        )
-    """)
-    cur.execute("""
-        INSERT INTO stars_fts(rowid, proper_name, bayer_name)
-        SELECT id, coalesce(proper_name,''), coalesce(bayer_name,'') FROM stars
-    """)
-    con.commit()
-    print("FTS5 index built.")
-
+    cur.close()
     con.close()
-    print(f"Database written to {DB_PATH}")
+    log("Database seeded successfully.")
 
 
 if __name__ == "__main__":
