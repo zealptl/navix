@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+:root {
+  /* Space-themed dark palette */
+  --space-black: #030712;
+  --space-deep: #0a0e1a;
+  --space-dark: #0f172a;
+  --space-panel: #111827;
+  --space-border: #1e293b;
+
+  /* Accent colors */
+  --star-gold: #f59e0b;
+  --nebula-blue: #3b82f6;
+  --nebula-purple: #8b5cf6;
+  --orbit-green: #10b981;
+  --trajectory-orange: #f97316;
+
+  /* Text */
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--space-black);
+  color: var(--text-primary);
+  font-family: ui-monospace, 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

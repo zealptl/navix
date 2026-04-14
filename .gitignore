@@ -1,0 +1,72 @@
+# Python (Backend)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+venv/
+ENV/
+env/
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# IDE
+.idea/*
+!.idea/codeStyles
+!.idea/inspectionProfiles
+.vscode/*
+!.vscode/extensions.json
+*.iml
+*.iws
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Editor backup files
+*.orig
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Generated or temporary data
+openspec/changes/
+backend/data/
