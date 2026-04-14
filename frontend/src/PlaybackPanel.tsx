@@ -63,7 +63,6 @@ export function DualClock() {
 // PlaybackPanel — scrubber, play/pause, reset
 // ---------------------------------------------------------------------------
 
-const _TICK_INTERVAL_MS = 16; // ~60fps
 
 export function PlaybackPanel() {
   const results = useSimStore((s) => s.results);
