@@ -126,7 +126,6 @@ function validateCommon(params: TripParams): PhysicsFailure | null {
 }
 
 function coastingPhase(distance: number, beta: number): TripPhase {
-  const gamma = 1 / Math.sqrt(1 - beta * beta);
   const tauDuration = distance * Math.sqrt(1 - beta * beta) / beta;
   const tDuration = distance / beta;
   return {
@@ -355,9 +354,6 @@ export function generateKeyframes(profile: TripProfile, N = 500): Keyframe[] {
     cumX += phase.distance;
   }
 
-  const a = (profile.phases[0].type === 'accelerating' || profile.phases[0].type === 'decelerating')
-    ? undefined
-    : undefined;
   // We'll re-derive a from the phase data using rindler inverses
   // For now extract acceleration from first accelerating phase by matching distance→tau
   // Actually we don't store 'a' in the profile — reconstruct from first phase

@@ -79,7 +79,6 @@ describe('Coasting phase time dilation', () => {
     expect(coastPhase).toBeDefined();
     if (!coastPhase) return;
     // gamma at 0.9c ≈ 2.294
-    const expectedGamma = 1 / Math.sqrt(1 - beta * beta);
     // For our coast phase at close to 0.9c:
     const ratio = coastPhase.tDuration / coastPhase.tauDuration;
     expect(ratio).toBeGreaterThan(1.0);

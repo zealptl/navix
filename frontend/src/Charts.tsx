@@ -73,8 +73,8 @@ export function VelocityChart() {
           />
           <Tooltip
             contentStyle={{ background: '#111827', border: '1px solid #1e293b', fontSize: 11 }}
-            labelFormatter={(v: number) => `τ = ${Number(v).toFixed(2)} yr`}
-            formatter={(v: number) => [`${Number(v).toFixed(4)}c`, 'β']}
+            labelFormatter={(v: any) => `τ = ${Number(v).toFixed(2)} yr`}
+            formatter={(v: any) => [`${Number(v).toFixed(4)}c`, 'β']}
           />
           <ReferenceLine
             x={playhead.tau}
@@ -153,8 +153,8 @@ export function TimeDivergenceChart() {
           />
           <Tooltip
             contentStyle={{ background: '#111827', border: '1px solid #1e293b', fontSize: 11 }}
-            labelFormatter={(v: number) => `τ = ${Number(v).toFixed(2)} yr`}
-            formatter={(v: number, name: string) => [
+            labelFormatter={(v: any) => `τ = ${Number(v).toFixed(2)} yr`}
+            formatter={(v: any, name: any) => [
               `${Number(v).toFixed(2)} yr`,
               name === 'earthTime' ? 'Earth t' : 'Ship τ',
             ]}
