@@ -1114,7 +1114,7 @@ export function StarMap3D() {
   };
 
   return (
-    <div style={{ width: '100%', height: '100dvh', position: 'relative', touchAction: 'none' }}>
+    <div style={{ width: '100%', height: '85dvh', position: 'relative', touchAction: 'none' }}>
       {/* Task 14.3: skeleton overlay while Zone 1 data is loading */}
       {zone1Loading && <StarMapSkeleton />}
 

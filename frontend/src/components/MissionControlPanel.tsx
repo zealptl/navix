@@ -416,7 +416,7 @@ export function MissionControlPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-4 bg-slate-900 border border-slate-700 rounded-lg w-full">
+    <div className="flex flex-col gap-5 p-4 bg-slate-900 border border-slate-700 rounded-lg w-full xl:h-full">
       <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-widest">Mission Control</h2>
 
       {/* Origin / Destination inputs + swap */}

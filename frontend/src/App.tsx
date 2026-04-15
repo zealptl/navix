@@ -20,7 +20,7 @@ function App() {
         </div>
 
         {/* Mission control sidebar — below map on mobile, left column on desktop */}
-        <div className="order-2 xl:order-1 xl:w-80 shrink-0 xl:overflow-y-auto xl:max-h-full px-4 pt-4 xl:px-0 xl:pt-0">
+        <div className="order-2 xl:order-1 xl:w-80 shrink-0 xl:h-full xl:overflow-y-auto px-4 pt-4 xl:px-0 xl:pt-0">
           <MissionControlPanel />
         </div>
       </div>
