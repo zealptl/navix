@@ -162,7 +162,7 @@ export function PlaybackPanel() {
         <button
           onClick={handlePlayPause}
           disabled={!hasTrip}
-          className="flex-1 py-2 rounded border text-sm font-medium transition-colors
+          className="flex-1 py-2 min-h-[44px] rounded border text-sm font-medium transition-colors
             disabled:opacity-30 disabled:cursor-not-allowed
             border-[var(--orbit-green)] text-[var(--orbit-green)]
             hover:bg-[var(--orbit-green)] hover:text-black"
@@ -172,7 +172,7 @@ export function PlaybackPanel() {
         <button
           onClick={handleReset}
           disabled={!hasTrip}
-          className="px-4 py-2 rounded border text-sm font-medium transition-colors
+          className="px-4 py-2 min-h-[44px] rounded border text-sm font-medium transition-colors
             disabled:opacity-30 disabled:cursor-not-allowed
             border-[var(--space-border)] text-[var(--text-secondary)]
             hover:border-[var(--text-secondary)] hover:text-[var(--text-primary)]"

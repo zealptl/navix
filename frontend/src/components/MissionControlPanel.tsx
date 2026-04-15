@@ -90,12 +90,12 @@ function StarSelectInput({ label, star, color, onSelect }: StarSelectInputProps)
             value={query}
             onChange={handleChange}
             placeholder={`Search ${label.toLowerCase()}…`}
-            className={`w-full bg-slate-900/50 border ${ringColor} rounded px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none ${accentClass} transition-colors min-h-[40px]`}
+            className={`w-full bg-slate-900/50 border ${ringColor} rounded px-3 py-2 text-sm text-slate-100 placeholder-slate-500 outline-none ${accentClass} transition-colors min-h-[44px]`}
           />
         ) : (
           <button
             onClick={startEditing}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded border ${ringColor} bg-slate-900/50 min-h-[40px] text-left hover:bg-slate-800/70 transition-colors`}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded border ${ringColor} bg-slate-900/50 min-h-[44px] text-left hover:bg-slate-800/70 transition-colors`}
           >
             <div className={`w-2 h-2 rounded-full ${dotColor} shrink-0`} />
             <div className="flex flex-col min-w-0 flex-1">
@@ -244,7 +244,7 @@ function AccelerationInput({ value, onChange }: AccelerationInputProps) {
               setError(null);
               onChange(g);
             }}
-            className={`px-2 py-1 text-xs rounded border transition-colors ${
+            className={`flex-1 px-2 py-2 min-h-[44px] text-xs rounded border transition-colors ${
               value === g
                 ? 'border-blue-500 text-blue-400 bg-blue-950/30'
                 : 'border-slate-600 text-slate-400 hover:border-slate-400'
@@ -288,7 +288,7 @@ function CoastControls({ coastMode, coastFraction, targetSpeed, validationMessag
     <div className="flex flex-col gap-3">
       <label className="text-xs text-slate-500 uppercase tracking-wider">Coasting Mode</label>
       {/* Mode toggle buttons */}
-      <div className="flex rounded overflow-hidden border border-slate-600 w-fit">
+      <div className="flex rounded overflow-hidden border border-slate-600 w-full sm:w-fit">
         {(['none', 'fraction', 'targetSpeed'] as const).map((m) => {
           const label = m === 'none' ? 'None' : m === 'fraction' ? 'Percentage' : 'Target Speed';
           const active = coastMode === m;
@@ -296,7 +296,7 @@ function CoastControls({ coastMode, coastFraction, targetSpeed, validationMessag
             <button
               key={m}
               onClick={() => onChange({ coastMode: m })}
-              className={`px-3 py-1.5 text-xs transition-colors ${
+              className={`flex-1 sm:flex-none px-3 py-2.5 text-xs transition-colors min-h-[44px] ${
                 active
                   ? 'bg-blue-600 text-white'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
@@ -370,14 +370,14 @@ function StopFlybyToggle({ mode, onChange }: StopFlybyToggleProps) {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-xs text-slate-500 uppercase tracking-wider">Mission Mode</label>
-      <div className="flex rounded overflow-hidden border border-slate-600 w-fit">
+      <div className="flex rounded overflow-hidden border border-slate-600 w-full sm:w-fit">
         {(['stop', 'flyby'] as const).map((m) => {
           const active = mode === m;
           return (
             <button
               key={m}
               onClick={() => onChange(m)}
-              className={`px-4 py-1.5 text-xs capitalize transition-colors ${
+              className={`flex-1 sm:flex-none px-4 py-2.5 text-xs capitalize transition-colors min-h-[44px] ${
                 active
                   ? 'bg-blue-600 text-white'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
@@ -416,7 +416,7 @@ export function MissionControlPanel() {
   };
 
   return (
-    <div className="flex flex-col gap-5 p-4 bg-slate-900 border border-slate-700 rounded-lg w-full max-w-sm">
+    <div className="flex flex-col gap-5 p-4 bg-slate-900 border border-slate-700 rounded-lg w-full">
       <h2 className="text-sm font-semibold text-slate-200 uppercase tracking-widest">Mission Control</h2>
 
       {/* Origin / Destination inputs + swap */}

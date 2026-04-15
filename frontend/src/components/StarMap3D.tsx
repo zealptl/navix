@@ -1114,7 +1114,7 @@ export function StarMap3D() {
   };
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100dvh', position: 'relative', touchAction: 'none' }}>
       {/* Task 14.3: skeleton overlay while Zone 1 data is loading */}
       {zone1Loading && <StarMapSkeleton />}
 
@@ -1142,7 +1142,7 @@ export function StarMap3D() {
         onClick={handleResetView}
         style={{
           position: 'absolute',
-          top: 12,
+          bottom: 12,
           right: 12,
           background: 'rgba(15,23,42,0.82)',
           border: '1px solid #334155',

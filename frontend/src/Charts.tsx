@@ -36,7 +36,7 @@ export function VelocityChart() {
 
   if (!results || keyframes.length === 0) {
     return (
-      <div className="rounded border border-[var(--space-border)] bg-[var(--space-panel)] p-3 h-48">
+      <div className="rounded border border-[var(--space-border)] bg-[var(--space-panel)] p-3 h-40 md:h-48">
         <div className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] mb-2">
           Velocity Profile (β = v/c)
         </div>
@@ -56,7 +56,7 @@ export function VelocityChart() {
       <div className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] mb-2">
         Velocity Profile (β = v/c)
       </div>
-      <ResponsiveContainer width="100%" height={160}>
+      <ResponsiveContainer width="100%" height={140}>
         <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis
@@ -108,7 +108,7 @@ export function TimeDivergenceChart() {
 
   if (!results || keyframes.length === 0) {
     return (
-      <div className="rounded border border-[var(--space-border)] bg-[var(--space-panel)] p-3 h-48">
+      <div className="rounded border border-[var(--space-border)] bg-[var(--space-panel)] p-3 h-40 md:h-48">
         <div className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] mb-2">
           Time Divergence (τ vs t)
         </div>
@@ -131,7 +131,7 @@ export function TimeDivergenceChart() {
       <div className="text-[10px] uppercase tracking-widest text-[var(--text-secondary)] mb-2">
         Time Divergence (τ vs t)
       </div>
-      <ResponsiveContainer width="100%" height={160}>
+      <ResponsiveContainer width="100%" height={140}>
         <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="timeDivGrad" x1="0" y1="0" x2="0" y2="1">
