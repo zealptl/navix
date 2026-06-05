@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Navix — Interstellar Travel Simulator</title>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@300,400,500,700&display=swap" rel="stylesheet">
+<style>
+/* ===========================================
+   THEME — Neon Cyber
+   Change :root variables to retheme the deck
+   =========================================== */
+:root {
+  --bg: #0a0f1c;
+  --bg-2: #0e1729;
+  --cyan: #00f5d4;
+  --cyan-dim: rgba(0,245,212,0.25);
+  --cyan-glow: rgba(0,245,212,0.35);
+  --magenta: #f72585;
+  --magenta-dim: rgba(247,37,133,0.25);
+  --yellow: #ffe14d;
+  --white: #eaf4ff;
+  --text: #a0bcd0;
+  --text-dim: #354e62;
+  --grid: rgba(0,245,212,0.038);
+  --font-display: 'Clash Display', sans-serif;
+  --font-body: 'Satoshi', sans-serif;
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===========================================
+   VIEWPORT BASE — mandatory fixed-stage CSS
+   Slides are authored at 1920×1080 and scaled
+   =========================================== */
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); }
+.deck-viewport { position: fixed; inset: 0; overflow: hidden; background: var(--bg); }
+.deck-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--bg); }
+.slide { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; display: block; visibility: hidden; opacity: 0; pointer-events: none; background: transparent; }
+.slide.active, .slide.visible { visibility: visible; opacity: 1; pointer-events: auto; z-index: 1; }
+img, video, canvas, svg { max-width: 100%; max-height: 100%; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; } }
+@media print {
+  html, body { width: 1920px; height: auto; overflow: visible; }
+  .deck-viewport { position: static; overflow: visible; }
+  .deck-stage { position: static; width: auto; height: auto; transform: none !important; }
+  .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; }
+  .slide:last-child { break-after: auto; }
+  .deck-controls, .edit-hotzone, .edit-toggle { display: none !important; }
+}
+
+/* ===========================================
+   SHARED ATMOSPHERE — star field + overlays
+   Sits behind all slide content (z-index: 0)
+   =========================================== */
+#shared-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.grid-overlay {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 96px 96px;
+}
+.scanlines {
+  position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0,0,0,0.09) 2px, rgba(0,0,0,0.09) 3px);
+}
+.vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 95% 85% at 50% 50%, transparent 35%, rgba(0,0,0,0.55) 100%);
+}
+
+/* ===========================================
+   REVEAL ANIMATIONS — triggered by .visible
+   =========================================== */
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity 0.65s var(--ease-expo), transform 0.65s var(--ease-expo); }
+.slide.visible .reveal { opacity: 1; transform: translateY(0); }
+.reveal.d1 { transition-delay: 0.06s; }
+.reveal.d2 { transition-delay: 0.16s; }
+.reveal.d3 { transition-delay: 0.26s; }
+.reveal.d4 { transition-delay: 0.36s; }
+.reveal.d5 { transition-delay: 0.46s; }
+.reveal.d6 { transition-delay: 0.56s; }
+.reveal-left { opacity: 0; transform: translateX(-40px); transition: opacity 0.65s var(--ease-expo), transform 0.65s var(--ease-expo); }
+.slide.visible .reveal-left { opacity: 1; transform: translateX(0); }
+.reveal-scale { opacity: 0; transform: scale(0.9); transition: opacity 0.65s var(--ease-expo), transform 0.65s var(--ease-expo); }
+.slide.visible .reveal-scale { opacity: 1; transform: scale(1); }
+
+/* ===========================================
+   SHARED CHROME — corner labels, brackets
+   =========================================== */
+.slide-chrome { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.ch { position: absolute; font-family: var(--font-body); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; }
+.ch-tl { top: 52px; left: 70px; color: var(--text-dim); }
+.ch-tr { top: 52px; right: 70px; color: var(--text-dim); text-align: right; }
+.ch-bl { bottom: 52px; left: 70px; color: var(--text-dim); }
+.ch-br { bottom: 52px; right: 70px; color: var(--cyan); }
+.bk { position: absolute; width: 24px; height: 24px; }
+.bk-tl { top: 40px; left: 56px; border-top: 2px solid rgba(0,245,212,0.4); border-left: 2px solid rgba(0,245,212,0.4); }
+.bk-br { bottom: 40px; right: 56px; border-bottom: 2px solid rgba(247,37,133,0.4); border-right: 2px solid rgba(247,37,133,0.4); }
+.accent-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent 0%, var(--cyan) 25%, var(--magenta) 75%, transparent 100%); opacity: 0.4; }
+
+/* ===========================================
+   SHARED ORRERY — animated orbital rings
+   =========================================== */
+.orrery { position: relative; }
+.orb-ring { position: absolute; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+.orb-r1 { width: 96px; height: 96px; border: 1px solid rgba(0,245,212,0.5); }
+.orb-r2 { width: 200px; height: 200px; border: 1px solid rgba(0,245,212,0.13); }
+.orb-r3 { width: 316px; height: 316px; border: 1px solid rgba(0,245,212,0.07); }
+.orb-r4 { width: 440px; height: 440px; border: 1px dashed rgba(0,245,212,0.06); }
+.orb-r5 { width: 560px; height: 560px; border: 1px solid rgba(0,245,212,0.03); }
+.orb-ch-h { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(0,245,212,0.06); transform: translateY(-50%); }
+.orb-ch-v { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,245,212,0.06); transform: translateX(-50%); }
+.orb-sun { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--cyan); top: 50%; left: 50%; transform: translate(-50%,-50%); box-shadow: 0 0 24px var(--cyan), 0 0 60px rgba(0,245,212,0.4); }
+.orb-planet { position: absolute; border-radius: 50%; }
+.op1 { width: 9px; height: 9px; background: var(--magenta); box-shadow: 0 0 12px var(--magenta); }
+.op2 { width: 7px; height: 7px; background: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
+.op3 { width: 8px; height: 8px; background: #b8f0ff; box-shadow: 0 0 8px #b8f0ff; }
+@keyframes orb-spin { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(360deg); } }
+@keyframes orb-spin-r { from { transform: translate(-50%,-50%) rotate(0deg); } to { transform: translate(-50%,-50%) rotate(-360deg); } }
+.orb-r2 { animation: orb-spin 28s linear infinite; }
+.orb-r4 { animation: orb-spin-r 55s linear infinite; }
+@keyframes orb-pulse { 0%,100% { box-shadow: 0 0 24px var(--cyan), 0 0 60px rgba(0,245,212,0.4); } 50% { box-shadow: 0 0 40px var(--cyan), 0 0 100px rgba(0,245,212,0.6); } }
+.orb-sun { animation: orb-pulse 3.5s ease-in-out infinite; }
+
+/* ===========================================
+   EYEBROW / UTILITY
+   =========================================== */
+.eyebrow { font-family: var(--font-body); font-size: 16px; letter-spacing: 5px; text-transform: uppercase; color: var(--cyan); display: flex; align-items: center; gap: 18px; }
+.eyebrow::before { content: ''; display: block; width: 44px; height: 2px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); flex-shrink: 0; }
+
+/* ===========================================
+   SLIDE 1 — TITLE
+   =========================================== */
+.s1-content {
+  position: absolute; left: 140px; top: 0; bottom: 0; width: 880px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.s1-title {
+  font-family: var(--font-display); font-size: 180px; font-weight: 700;
+  line-height: 0.84; color: var(--white); letter-spacing: -6px; margin: 0;
+  text-shadow: 0 0 100px rgba(0,245,212,0.08);
+}
+.s1-title .ac { color: var(--cyan); text-shadow: 0 0 28px var(--cyan), 0 0 80px rgba(0,245,212,0.35); }
+.s1-sub { font-family: var(--font-body); font-size: 26px; font-weight: 300; color: var(--text); line-height: 1.6; max-width: 580px; margin: 36px 0 60px; }
+.s1-stats { display: flex; gap: 0; }
+.s1-stat { display: flex; flex-direction: column; gap: 8px; padding-right: 44px; border-right: 1px solid rgba(0,245,212,0.14); margin-right: 44px; }
+.s1-stat:last-child { border-right: none; }
+.s1-stat-label { font-family: var(--font-body); font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); }
+.s1-stat-value { font-family: var(--font-display); font-size: 30px; font-weight: 600; color: var(--cyan); line-height: 1; text-shadow: 0 0 12px rgba(0,245,212,0.4); }
+.s1-orrery { position: absolute; right: 80px; top: 50%; transform: translateY(-50%); width: 560px; height: 560px; }
+
+/* ===========================================
+   SLIDE 2 — THE PROBLEM (centered statement)
+   =========================================== */
+.s2-content {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 80px 180px;
+}
+.s2-num { font-family: var(--font-display); font-size: 18px; letter-spacing: 8px; color: var(--text-dim); margin-bottom: 52px; text-transform: uppercase; }
+.s2-headline {
+  font-family: var(--font-display); font-size: 96px; font-weight: 700;
+  line-height: 0.92; color: var(--white); letter-spacing: -3px; max-width: 1280px;
+}
+.s2-headline .hl { color: var(--cyan); text-shadow: 0 0 22px var(--cyan); }
+.s2-headline .hl2 { color: var(--magenta); text-shadow: 0 0 22px var(--magenta); }
+.s2-rule { width: 80px; height: 2px; background: linear-gradient(90deg, var(--cyan), var(--magenta)); margin: 52px auto 44px; }
+.s2-body { font-family: var(--font-body); font-size: 30px; font-weight: 300; color: var(--text); line-height: 1.65; max-width: 860px; }
+.s2-coda { font-family: var(--font-body); font-size: 17px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-top: 44px; }
+
+/* ===========================================
+   SLIDE 3 — THE EXPERIENCE (features)
+   =========================================== */
+.s3-content {
+  position: absolute; left: 140px; top: 0; bottom: 0; width: 840px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.slide-h { font-family: var(--font-display); font-size: 80px; font-weight: 700; line-height: 0.92; color: var(--white); letter-spacing: -2px; margin: 26px 0 52px; }
+.slide-h .ac { color: var(--cyan); text-shadow: 0 0 20px var(--cyan); }
+.feat-list { display: flex; flex-direction: column; gap: 30px; }
+.feat-item { display: flex; align-items: flex-start; gap: 26px; }
+.feat-icon {
+  width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
+  background: rgba(0,245,212,0.07); border: 1px solid rgba(0,245,212,0.2);
+  display: flex; align-items: center; justify-content: center; font-size: 24px;
+}
+.feat-title { font-family: var(--font-body); font-size: 22px; font-weight: 500; color: var(--white); margin-bottom: 5px; }
+.feat-desc { font-family: var(--font-body); font-size: 20px; font-weight: 300; color: var(--text); line-height: 1.5; }
+.s3-orrery { position: absolute; right: 56px; top: 50%; transform: translateY(-50%); width: 620px; height: 620px; }
+
+/* ===========================================
+   SLIDE 4 — THE PHYSICS (stat cards)
+   =========================================== */
+.s4-content {
+  position: absolute; inset: 0; padding: 80px 140px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.s4-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-top: 24px; }
+.phys-card {
+  background: rgba(0,245,212,0.04); border: 1px solid rgba(0,245,212,0.13);
+  border-radius: 16px; padding: 48px 44px;
+}
+.phys-num {
+  font-family: var(--font-display); font-size: 76px; font-weight: 700;
+  color: var(--cyan); line-height: 0.9; letter-spacing: -2px;
+  text-shadow: 0 0 30px rgba(0,245,212,0.38); margin-bottom: 18px;
+}
+.phys-num sub { font-size: 36px; }
+.phys-label { font-family: var(--font-body); font-size: 22px; font-weight: 300; color: var(--text); line-height: 1.5; }
+.phys-label strong { color: var(--white); font-weight: 500; }
+.phys-unit { font-family: var(--font-body); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); margin-top: 14px; }
+.s4-note { font-family: var(--font-body); font-size: 22px; font-weight: 300; color: var(--text-dim); margin-top: 44px; letter-spacing: 0.3px; }
+.s4-note .eq { font-size: 26px; color: var(--cyan); letter-spacing: 1px; }
+
+/* ===========================================
+   SLIDE 5 — ARCHITECTURE (flow diagram)
+   =========================================== */
+.s5-content {
+  position: absolute; inset: 0; padding: 80px 140px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.arch-flow { display: flex; align-items: stretch; gap: 0; margin-top: 24px; }
+.arch-node {
+  flex: 1; background: rgba(0,245,212,0.04); border: 1px solid rgba(0,245,212,0.14);
+  border-radius: 16px; padding: 44px 38px;
+}
+.arch-node-name { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--white); margin-bottom: 14px; }
+.arch-node-tech { font-family: var(--font-body); font-size: 15px; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); margin-bottom: 24px; }
+.arch-node-items { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+.arch-node-items li { font-family: var(--font-body); font-size: 19px; font-weight: 300; color: var(--text); padding-left: 22px; position: relative; line-height: 1.4; }
+.arch-node-items li::before { content: '›'; position: absolute; left: 0; color: var(--cyan); }
+.arch-arrow {
+  width: 52px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.arch-arrow::before { content: ''; display: block; width: 100%; height: 1px; background: linear-gradient(90deg, var(--cyan), var(--magenta)); }
+.arch-arrow::after { content: '▶'; position: absolute; right: -4px; color: var(--magenta); font-size: 14px; }
+
+/* ===========================================
+   SLIDE 6 — HOW IT WORKS (4-step flow)
+   =========================================== */
+.s6-content {
+  position: absolute; inset: 0; padding: 80px 140px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.flow-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 44px; margin-top: 24px; }
+.flow-step { display: flex; flex-direction: column; gap: 18px; }
+.flow-step-bar { width: 100%; height: 3px; background: linear-gradient(90deg, var(--cyan), rgba(0,245,212,0.2)); border-radius: 2px; margin-bottom: 6px; }
+.flow-step-n {
+  font-family: var(--font-display); font-size: 72px; font-weight: 700;
+  color: rgba(0,245,212,0.18); line-height: 1; letter-spacing: -2px;
+}
+.flow-step-t { font-family: var(--font-display); font-size: 28px; font-weight: 600; color: var(--white); line-height: 1.2; }
+.flow-step-d { font-family: var(--font-body); font-size: 20px; font-weight: 300; color: var(--text); line-height: 1.6; }
+
+/* ===========================================
+   SLIDE 7 — BY THE NUMBERS
+   =========================================== */
+.s7-content {
+  position: absolute; inset: 0; padding: 80px 140px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.nums-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 44px; margin-top: 24px; }
+.num-card { display: flex; flex-direction: column; gap: 16px; padding-left: 36px; border-left: 3px solid rgba(0,245,212,0.24); }
+.num-val {
+  font-family: var(--font-display); font-size: 88px; font-weight: 700;
+  color: var(--cyan); line-height: 0.88; letter-spacing: -3px;
+  text-shadow: 0 0 30px rgba(0,245,212,0.35);
+}
+.num-label { font-family: var(--font-body); font-size: 22px; font-weight: 300; color: var(--text); line-height: 1.45; }
+.num-label strong { color: var(--white); font-weight: 500; display: block; }
+.num-unit { font-family: var(--font-body); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--text-dim); }
+
+/* ===========================================
+   SLIDE 8 — CLOSING
+   =========================================== */
+.s8-content {
+  position: absolute; inset: 0; padding: 80px 160px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+}
+.s8-tag { font-family: var(--font-body); font-size: 15px; letter-spacing: 5px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 44px; }
+.s8-title {
+  font-family: var(--font-display); font-size: 116px; font-weight: 700;
+  line-height: 0.88; letter-spacing: -4px; color: var(--white);
+}
+.s8-title .c1 { color: var(--cyan); text-shadow: 0 0 30px var(--cyan); }
+.s8-title .c2 { color: var(--magenta); text-shadow: 0 0 30px var(--magenta); }
+.s8-rule { width: 80px; height: 2px; background: linear-gradient(90deg, var(--cyan), var(--magenta)); margin: 52px auto; }
+.s8-next-title { font-family: var(--font-body); font-size: 16px; letter-spacing: 4px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 36px; }
+.s8-next-items { display: flex; gap: 40px; }
+.s8-next-item {
+  font-family: var(--font-body); font-size: 21px; font-weight: 300; color: var(--text);
+  line-height: 1.55; max-width: 320px; text-align: left;
+  padding: 28px 32px; background: rgba(0,245,212,0.04);
+  border: 1px solid rgba(0,245,212,0.12); border-radius: 12px;
+}
+.s8-next-item strong { color: var(--cyan); display: block; font-size: 14px; font-weight: 500; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+
+/* ===========================================
+   SLIDE INDICATOR DOTS (outside stage)
+   =========================================== */
+.deck-controls { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 1000; display: flex; gap: 10px; align-items: center; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(0,245,212,0.2); cursor: pointer; transition: background 0.3s, transform 0.3s; border: none; padding: 0; }
+.dot.active { background: var(--cyan); transform: scale(1.5); box-shadow: 0 0 8px var(--cyan); }
+.dot:hover:not(.active) { background: rgba(0,245,212,0.5); }
+
+/* ===========================================
+   INLINE EDIT CONTROLS
+   Hover top-left corner or press E to enter
+   =========================================== */
+.edit-hotzone { position: fixed; top: 0; left: 0; width: 80px; height: 80px; z-index: 10000; cursor: pointer; }
+.edit-toggle {
+  position: fixed; top: 18px; left: 18px; z-index: 10001;
+  background: rgba(10,15,28,0.9); border: 1px solid rgba(0,245,212,0.35); color: var(--cyan);
+  font-family: var(--font-body); font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+  padding: 8px 16px; border-radius: 6px; cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.edit-toggle.show, .edit-toggle.active { opacity: 1; pointer-events: auto; }
+.edit-toggle.active { background: rgba(0,245,212,0.12); }
+[contenteditable]:focus { outline: 1px dashed rgba(0,245,212,0.5); outline-offset: 4px; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- === PRESENTATION STRUCTURE === -->
+<div class="deck-viewport">
+  <main class="deck-stage" id="deckStage">
+
+    <!-- === SHARED ATMOSPHERE (behind all slides) === -->
+    <div id="shared-bg">
+      <div class="grid-overlay"></div>
+      <div class="scanlines"></div>
+      <div class="vignette"></div>
+      <!-- Stars generated by JS below -->
+    </div>
+
+    <!-- =====================================================
+         SLIDE 1 — TITLE
+         ===================================================== -->
+    <section class="slide" data-slide="1" aria-label="Title slide">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">Mission Briefing</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">01 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s1-content">
+        <div class="eyebrow reveal d1" contenteditable="false">Interstellar Travel Simulator</div>
+        <h1 class="s1-title reveal d2">NAV<span class="ac">IX</span></h1>
+        <p class="s1-sub reveal d3">Physically grounded simulation of relativistic spaceflight — pick any two of 119,629 real stars and watch the universe do the math.</p>
+        <div class="s1-stats reveal d4">
+          <div class="s1-stat">
+            <span class="s1-stat-label">Stars in catalog</span>
+            <span class="s1-stat-value">119,629</span>
+          </div>
+          <div class="s1-stat">
+            <span class="s1-stat-label">Physics model</span>
+            <span class="s1-stat-value">Rindler SR</span>
+          </div>
+          <div class="s1-stat">
+            <span class="s1-stat-label">Peak velocity</span>
+            <span class="s1-stat-value">≈ 0.9999c</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Animated orbital orrery -->
+      <div class="s1-orrery orrery reveal-scale d3">
+        <div class="orb-ch-h"></div>
+        <div class="orb-ch-v"></div>
+        <div class="orb-ring orb-r5"></div>
+        <div class="orb-ring orb-r4"></div>
+        <div class="orb-ring orb-r3"></div>
+        <div class="orb-ring orb-r2"></div>
+        <div class="orb-ring orb-r1"></div>
+        <div class="orb-sun"></div>
+        <div class="orb-planet op1" style="top:calc(50% - 101px);left:50%;transform:translateX(-50%);"></div>
+        <div class="orb-planet op2" style="top:50%;right:calc(50% - 160px);transform:translateY(-50%);"></div>
+        <div class="orb-planet op3" style="bottom:calc(50% - 148px);left:calc(50% - 56px);"></div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         SLIDE 2 — THE PROBLEM
+         ===================================================== -->
+    <section class="slide" data-slide="2" aria-label="The problem">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">The Problem</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">02 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s2-content">
+        <div class="s2-num reveal d1">Context</div>
+        <h2 class="s2-headline reveal d2">
+          Dry calculators.<br>
+          <span class="hl">Pure fiction.</span><br>
+          <span style="color:var(--white);">Nothing in between.</span>
+        </h2>
+        <div class="s2-rule reveal d3"></div>
+        <p class="s2-body reveal d4">Navix gives the physics of interstellar travel a visceral, grounded experience — inspired by Andy Weir's <em>Project Hail Mary</em>, built on actual special relativity.</p>
+        <p class="s2-coda reveal d5">Rindler equations · HYG v3.8 catalog · 119,629 real stars</p>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         SLIDE 3 — THE EXPERIENCE
+         ===================================================== -->
+    <section class="slide" data-slide="3" aria-label="The experience">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">The Experience</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">03 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s3-content">
+        <div class="eyebrow reveal d1">What you see</div>
+        <h2 class="slide-h reveal d2">119,629 stars.<br><span class="ac">One 3D map.</span></h2>
+        <div class="feat-list">
+          <div class="feat-item reveal d3">
+            <div class="feat-icon">🌌</div>
+            <div>
+              <div class="feat-title">Three-zone LOD star field</div>
+              <div class="feat-desc">Famous stars · Naked-eye density · 50k Orion Arm points · 500k procedural Milky Way</div>
+            </div>
+          </div>
+          <div class="feat-item reveal d4">
+            <div class="feat-icon">📍</div>
+            <div>
+              <div class="feat-title">Click to select origin &amp; destination</div>
+              <div class="feat-desc">Left-click = origin, right-click = destination — or search from 119k by name</div>
+            </div>
+          </div>
+          <div class="feat-item reveal d5">
+            <div class="feat-icon">🛸</div>
+            <div>
+              <div class="feat-title">Live trajectory + playback</div>
+              <div class="feat-desc">Ship icon moves between stars as Ship τ and Earth t clocks diverge in real time</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="s3-orrery orrery reveal-scale d3">
+        <div class="orb-ch-h"></div>
+        <div class="orb-ch-v"></div>
+        <div class="orb-ring orb-r5"></div>
+        <div class="orb-ring orb-r4"></div>
+        <div class="orb-ring orb-r3"></div>
+        <div class="orb-ring orb-r2"></div>
+        <div class="orb-ring orb-r1"></div>
+        <div class="orb-sun"></div>
+        <div class="orb-planet op1" style="top:calc(50% - 98px);left:50%;transform:translateX(-50%);"></div>
+        <div class="orb-planet op2" style="top:50%;right:calc(50% - 158px);transform:translateY(-50%);"></div>
+        <div class="orb-planet op3" style="bottom:calc(50% - 150px);left:calc(50% - 50px);"></div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         SLIDE 4 — THE PHYSICS
+         ===================================================== -->
+    <section class="slide" data-slide="4" aria-label="The physics">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">The Physics</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">04 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s4-content">
+        <div class="eyebrow reveal d1">Relativistic physics, real-time</div>
+        <h2 class="slide-h reveal d2" style="margin-bottom:44px;">Earth → <span class="ac">Proxima Centauri</span> at 1g</h2>
+
+        <div class="s4-grid">
+          <div class="phys-card reveal d3">
+            <div class="phys-num">5.15<sub>yr</sub></div>
+            <div class="phys-label"><strong>Ship proper time</strong><br>what the crew experiences</div>
+            <div class="phys-unit">Proper time τ</div>
+          </div>
+          <div class="phys-card reveal d4">
+            <div class="phys-num">13.7<sub>yr</sub></div>
+            <div class="phys-label"><strong>Earth coordinate time</strong><br>what everyone left behind experiences</div>
+            <div class="phys-unit">Coordinate time t</div>
+          </div>
+          <div class="phys-card reveal d5">
+            <div class="phys-num">0.988<sub>c</sub></div>
+            <div class="phys-label"><strong>Peak velocity</strong><br>Lorentz γ ≈ 6.5 at midpoint</div>
+            <div class="phys-unit">Fraction of lightspeed</div>
+          </div>
+        </div>
+
+        <p class="s4-note reveal d6">
+          Closed-form Rindler equations — <span class="eq">τ = 2·acosh(a·D/2 + 1) / a</span> — zero API latency, 500 keyframes per trip, 37 unit tests passing.
+        </p>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         SLIDE 5 — ARCHITECTURE
+         ===================================================== -->
+    <section class="slide" data-slide="5" aria-label="Architecture">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">Architecture</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">05 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s5-content">
+        <div class="eyebrow reveal d1">How it's built</div>
+        <h2 class="slide-h reveal d2" style="margin-bottom:52px;">Three layers.<br><span class="ac">Zero compromise.</span></h2>
+
+        <div class="arch-flow">
+          <div class="arch-node reveal d3">
+            <div class="arch-node-name">Frontend</div>
+            <div class="arch-node-tech">Vite · React · TypeScript</div>
+            <ul class="arch-node-items">
+              <li>React Three Fiber — 3D star map</li>
+              <li>physics.ts — Rindler equations, client-side</li>
+              <li>Zustand — simulation state</li>
+              <li>Recharts — velocity &amp; time charts</li>
+              <li>Tailwind CSS v4</li>
+            </ul>
+          </div>
+          <div class="arch-arrow reveal d4"></div>
+          <div class="arch-node reveal d4">
+            <div class="arch-node-name">Backend</div>
+            <div class="arch-node-tech">FastAPI · Python</div>
+            <ul class="arch-node-items">
+              <li>GET /api/stars/famous</li>
+              <li>GET /api/stars/nearby</li>
+              <li>GET /api/stars/search</li>
+              <li>GET /api/stars/:id</li>
+              <li>GET /health</li>
+            </ul>
+          </div>
+          <div class="arch-arrow reveal d5"></div>
+          <div class="arch-node reveal d5">
+            <div class="arch-node-name">Database</div>
+            <div class="arch-node-tech">Supabase Postgres</div>
+            <ul class="arch-node-items">
+              <li>119,629 HYG v3.8 stars</li>
+              <li>pg_trgm GIN index — fuzzy search</li>
+              <li>Serverless pooler (port 6543)</li>
+              <li>x/y/z parsec coords per star</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         SLIDE 6 — HOW IT WORKS
+         ===================================================== -->
+    <section class="slide" data-slide="6" aria-label="How it works">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">User Flow</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">06 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s6-content">
+        <div class="eyebrow reveal d1">From star to star</div>
+        <h2 class="slide-h reveal d2" style="margin-bottom:52px;">Four steps.<br><span class="ac">Infinite destinations.</span></h2>
+
+        <div class="flow-steps">
+          <div class="flow-step reveal d2">
+            <div class="flow-step-bar"></div>
+            <div class="flow-step-n">01</div>
+            <div class="flow-step-t">Pick two stars</div>
+            <div class="flow-step-d">Click the 3D map or search by name across 119k catalog entries.</div>
+          </div>
+          <div class="flow-step reveal d3">
+            <div class="flow-step-bar" style="background:linear-gradient(90deg,var(--cyan),var(--magenta));"></div>
+            <div class="flow-step-n" style="color:rgba(247,37,133,0.22);">02</div>
+            <div class="flow-step-t">Set the mission</div>
+            <div class="flow-step-d">Choose acceleration (0.001–100g), coasting mode, and stop vs flyby.</div>
+          </div>
+          <div class="flow-step reveal d4">
+            <div class="flow-step-bar" style="background:linear-gradient(90deg,var(--magenta),rgba(255,225,77,0.6));"></div>
+            <div class="flow-step-n" style="color:rgba(255,225,77,0.22);">03</div>
+            <div class="flow-step-t">Watch the physics</div>
+            <div class="flow-step-d">Ship time, Earth time, velocity, and Lorentz γ update instantly — zero latency.</div>
+          </div>
+          <div class="flow-step reveal d5">
+            <div class="flow-step-bar" style="background:linear-gradient(90deg,rgba(255,225,77,0.6),transparent);"></div>
+            <div class="flow-step-n" style="color:rgba(255,225,77,0.16);">04</div>
+            <div class="flow-step-t">Analyze the mission</div>
+            <div class="flow-step-d">Velocity curves, time-divergence chart, and propulsion mass-ratio table for 6 engine types.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         SLIDE 7 — BY THE NUMBERS
+         ===================================================== -->
+    <section class="slide" data-slide="7" aria-label="By the numbers">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">Key Metrics</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">07 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s7-content">
+        <div class="eyebrow reveal d1">By the numbers</div>
+        <h2 class="slide-h reveal d2" style="margin-bottom:56px;">The system<br><span class="ac">at a glance.</span></h2>
+
+        <div class="nums-grid">
+          <div class="num-card reveal d3">
+            <div class="num-val">119k</div>
+            <div class="num-label"><strong>Real stars</strong>HYG v3.8 catalog, incl. TRAPPIST-1, Kepler-452 &amp; Sgr A*</div>
+            <div class="num-unit">HYG catalog entries</div>
+          </div>
+          <div class="num-card reveal d4">
+            <div class="num-val">37</div>
+            <div class="num-label"><strong>Unit tests</strong>Physics invariant suite — all passing, including relativistic Tsiolkovsky</div>
+            <div class="num-unit">Vitest — all passing</div>
+          </div>
+          <div class="num-card reveal d5">
+            <div class="num-val">500</div>
+            <div class="num-label"><strong>Keyframes</strong>Per trip — interpolated over proper time τ for smooth playback</div>
+            <div class="num-unit">Frames per mission</div>
+          </div>
+          <div class="num-card reveal d6">
+            <div class="num-val">100g</div>
+            <div class="num-label"><strong>Max acceleration</strong>From 0.001g to 100g — 6 order-of-magnitude range</div>
+            <div class="num-unit">Accel range: 0.001–100g</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================
+         SLIDE 8 — CLOSING / WHAT'S NEXT
+         ===================================================== -->
+    <section class="slide" data-slide="8" aria-label="What's next">
+      <div class="slide-chrome">
+        <span class="ch ch-tl">What's Next</span>
+        <span class="ch ch-tr">June 2026</span>
+        <span class="ch ch-br">08 / 08</span>
+        <div class="bk bk-tl"></div>
+        <div class="bk bk-br"></div>
+        <div class="accent-bar"></div>
+      </div>
+
+      <div class="s8-content">
+        <div class="s8-tag reveal d1">Open frontiers</div>
+        <h2 class="s8-title reveal d2">The stars<br>are <span class="c1">waiting</span>.<span class="c2">.</span>.</h2>
+        <div class="s8-rule reveal d3"></div>
+        <div class="s8-next-title reveal d3">On the roadmap</div>
+        <div class="s8-next-items">
+          <div class="s8-next-item reveal d4">
+            <strong>Playback speed</strong>
+            Configurable playback rate — currently hardcoded at 1 real sec = 1 ship month.
+          </div>
+          <div class="s8-next-item reveal d5">
+            <strong>Zone 2 selection</strong>
+            Click-to-select for the 50k Orion Arm point-cloud — currently search-only for non-famous stars.
+          </div>
+          <div class="s8-next-item reveal d6">
+            <strong>Health-check ping</strong>
+            Vercel Cron every 4 days to keep the Supabase free-tier project from pausing.
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- /.deck-stage -->
+</div><!-- /.deck-viewport -->
+
+<!-- === NAVIGATION DOTS (outside stage, fixed) === -->
+<nav class="deck-controls" id="deckControls" aria-label="Slide navigation">
+  <button class="dot" data-index="0" aria-label="Slide 1"></button>
+  <button class="dot" data-index="1" aria-label="Slide 2"></button>
+  <button class="dot" data-index="2" aria-label="Slide 3"></button>
+  <button class="dot" data-index="3" aria-label="Slide 4"></button>
+  <button class="dot" data-index="4" aria-label="Slide 5"></button>
+  <button class="dot" data-index="5" aria-label="Slide 6"></button>
+  <button class="dot" data-index="6" aria-label="Slide 7"></button>
+  <button class="dot" data-index="7" aria-label="Slide 8"></button>
+</nav>
+
+<!-- === INLINE EDIT AFFORDANCE === -->
+<div class="edit-hotzone" id="editHotzone"></div>
+<button class="edit-toggle" id="editToggle">✏ Edit</button>
+
+<script>
+/* ===========================================
+   STAR FIELD — generated once, shared
+   =========================================== */
+(function() {
+  const bg = document.getElementById('shared-bg');
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:absolute;inset:0;overflow:hidden;';
+  for (let i = 0; i < 260; i++) {
+    const d = document.createElement('div');
+    const sz = Math.random() * 2.4 + 0.4;
+    const bright = Math.random();
+    const col = bright > 0.88 ? '#f0d8c0' : bright > 0.65 ? '#c0d0f0' : '#ffffff';
+    d.style.cssText = `position:absolute;border-radius:50%;background:${col};width:${sz}px;height:${sz}px;left:${(Math.random()*100).toFixed(2)}%;top:${(Math.random()*100).toFixed(2)}%;opacity:${(Math.random()*0.55+0.08).toFixed(2)};`;
+    wrap.appendChild(d);
+  }
+  bg.insertBefore(wrap, bg.firstChild);
+})();
+
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   =========================================== */
+class SlidePresentation {
+  constructor() {
+    this.slides = Array.from(document.querySelectorAll('.slide'));
+    this.dots = Array.from(document.querySelectorAll('.dot'));
+    this.current = 0;
+    this.stage = document.getElementById('deckStage');
+    this.setupScale();
+    this.setupKeys();
+    this.setupTouch();
+    this.setupWheel();
+    this.setupDots();
+    this.goto(0);
+  }
+
+  setupScale() {
+    const scale = () => {
+      const f = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      const x = (window.innerWidth - 1920 * f) / 2;
+      const y = (window.innerHeight - 1080 * f) / 2;
+      this.stage.style.transform = `translate(${x}px,${y}px) scale(${f})`;
+    };
+    scale();
+    window.addEventListener('resize', scale);
+  }
+
+  goto(idx) {
+    const n = Math.max(0, Math.min(idx, this.slides.length - 1));
+    this.slides.forEach((s, i) => {
+      const on = i === n;
+      s.classList.toggle('active', on);
+      // brief delay so entering slide renders before .visible triggers animations
+      if (on) { requestAnimationFrame(() => requestAnimationFrame(() => s.classList.add('visible'))); }
+      else { s.classList.remove('visible'); }
+    });
+    this.dots.forEach((d, i) => d.classList.toggle('active', i === n));
+    this.current = n;
+  }
+
+  next() { this.goto(this.current + 1); }
+  prev() { this.goto(this.current - 1); }
+
+  setupKeys() {
+    document.addEventListener('keydown', e => {
+      if (e.target.getAttribute('contenteditable') === 'true') return;
+      if (['ArrowRight','ArrowDown','Space','PageDown'].includes(e.code)) { e.preventDefault(); this.next(); }
+      if (['ArrowLeft','ArrowUp','PageUp'].includes(e.code)) { e.preventDefault(); this.prev(); }
+    });
+  }
+
+  setupTouch() {
+    let x0 = null;
+    document.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    document.addEventListener('touchend', e => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      if (Math.abs(dx) > 50) { dx < 0 ? this.next() : this.prev(); }
+      x0 = null;
+    });
+  }
+
+  setupWheel() {
+    let last = 0;
+    document.addEventListener('wheel', e => {
+      const now = Date.now();
+      if (now - last < 700) return;
+      last = now;
+      e.deltaY > 0 ? this.next() : this.prev();
+    }, { passive: true });
+  }
+
+  setupDots() {
+    this.dots.forEach((d, i) => d.addEventListener('click', () => this.goto(i)));
+  }
+}
+
+const deck = new SlidePresentation();
+
+/* ===========================================
+   INLINE EDITING
+   Hover top-left corner or press E to toggle
+   =========================================== */
+const editor = {
+  isActive: false,
+  toggleEditMode() {
+    this.isActive = !this.isActive;
+    const btn = document.getElementById('editToggle');
+    btn.classList.toggle('active', this.isActive);
+    btn.textContent = this.isActive ? '✓ Done' : '✏ Edit';
+    document.querySelectorAll('.slide h1,.slide h2,.slide p,.slide li,.slide .s1-stat-value,.slide .phys-num,.slide .num-val,.slide .eyebrow,.slide .flow-step-t,.slide .flow-step-d,.slide .feat-title,.slide .feat-desc,.slide .arch-node-name').forEach(el => {
+      el.contentEditable = this.isActive ? 'true' : 'false';
+    });
+    if (this.isActive) {
+      const saved = localStorage.getItem('navix-slides-edits');
+      // future: restore saved edits
+    } else {
+      // auto-save to localStorage
+      const edits = {};
+      document.querySelectorAll('[contenteditable="false"]').forEach(el => {
+        if (el.dataset.id) edits[el.dataset.id] = el.innerHTML;
+      });
+    }
+  }
+};
+
+const hotzone = document.getElementById('editHotzone');
+const editToggle = document.getElementById('editToggle');
+let hideTimeout = null;
+
+hotzone.addEventListener('mouseenter', () => { clearTimeout(hideTimeout); editToggle.classList.add('show'); });
+hotzone.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => { if (!editor.isActive) editToggle.classList.remove('show'); }, 400); });
+editToggle.addEventListener('mouseenter', () => { clearTimeout(hideTimeout); });
+editToggle.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => { if (!editor.isActive) editToggle.classList.remove('show'); }, 400); });
+hotzone.addEventListener('click', () => editor.toggleEditMode());
+editToggle.addEventListener('click', () => editor.toggleEditMode());
+document.addEventListener('keydown', e => { if ((e.key === 'e' || e.key === 'E') && !e.target.getAttribute('contenteditable')) editor.toggleEditMode(); });
+</script>
+</body>
+</html>
